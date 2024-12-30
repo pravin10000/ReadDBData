@@ -9,8 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class TableUpdateService {
@@ -18,39 +17,47 @@ public class TableUpdateService {
     @Autowired
     private Table1Repository table1Repository;
 
-    private List<Table1> previousData;
-    @Autowired
-    private ObjectMapper objectMapper;
+    private LocalDateTime lastProcessedAt = LocalDateTime.MIN;
 
-    private LocalDateTime lastProcessedAt = null;
+    // In-memory map to track the state of each record (keyed by ID)
+    private Map<Integer, Table1> recordState = new HashMap<>();
 
-    @Scheduled(fixedRate = 60000)
-    public void checkForChanges() throws JsonProcessingException {
-        try {
-            List<Table1> dataToProcess;
+    @Scheduled(fixedRate = 60000) // Every 1 minute
+    public void checkForUpdates() {
+        // Fetch records updated after the lastProcessedAt
+        List<Table1> updatedRecords = table1Repository.findAllByOrderByUpdatedAtDesc();
 
-            if (lastProcessedAt == null) {
-                // First run: Fetch all data
-                System.out.println("Fetching all data...");
-                dataToProcess = table1Repository.findAllByOrderByUpdatedAtDesc();
-            } else {
-                // Subsequent runs: Fetch only updated or newly inserted data
-                System.out.println("Fetching data updated after: " + lastProcessedAt);
-                dataToProcess = table1Repository.findUpdatedData(lastProcessedAt);
+        // Separate new and modified records
+        List<Table1> newRecords = new ArrayList<>();
+        List<Table1> modifiedRecords = new ArrayList<>();
+
+        for (Table1 record : updatedRecords) {
+            if (!recordState.containsKey(record.getId())) {
+                // New record
+                newRecords.add(record);
+            } else if (!record.equals(recordState.get(record.getId()))) {
+                // Modified record
+                modifiedRecords.add(record);
             }
 
-            if (dataToProcess.isEmpty()) {
-                System.out.println("No new changes detected.");
-            } else {
-                // Print data in JSON format
-                String json = objectMapper.writeValueAsString(dataToProcess);
-                System.out.println("Updated data: " + json);
+            // Update the record state
+            recordState.put(record.getId(), record);
+        }
 
-                // Update lastProcessedAt to the latest `updated_at` value
-                lastProcessedAt = dataToProcess.get(0).getUpdatedAt();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        // Update lastProcessedAt to the most recent `updatedAt` value
+        if (!updatedRecords.isEmpty()) {
+            lastProcessedAt = updatedRecords.get(0).getUpdatedAt();
+        }
+
+        // Print results
+        if (!newRecords.isEmpty()) {
+            System.out.println("New Records: " + newRecords);
+        }
+        if (!modifiedRecords.isEmpty()) {
+            System.out.println("Modified Records: " + modifiedRecords);
+        }
+        if (newRecords.isEmpty() && modifiedRecords.isEmpty()) {
+            System.out.println("No changes detected.");
         }
     }
 }
