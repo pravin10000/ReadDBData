@@ -3,6 +3,7 @@ package DB.export.demo1.entity;
 import jakarta.persistence.*;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 
 @Entity
@@ -14,7 +15,8 @@ public class Table1 {
     private String name;
 
     @Column(name = "updated_at")
-    private Timestamp updatedAt;
+    @Temporal(TemporalType.TIMESTAMP)
+    private LocalDateTime updatedAt;
 
     // Getters and Setters
     public Integer getId() {
@@ -33,11 +35,11 @@ public class Table1 {
         this.name = name;
     }
 
-    public Timestamp getUpdatedAt() {
+    public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
 
-    public void setUpdatedAt(Timestamp updatedAt) {
+    public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
 }
